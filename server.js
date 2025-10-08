@@ -65,7 +65,10 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
             goto(url: $url, waitUntil: networkIdle) {
                 status
             }
-            cookies
+            cookies {
+                name
+                value
+            }
         }
     `;
 
@@ -84,15 +87,13 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
         const data = await response.json();
         if (data.errors) throw new Error(data.errors[0].message);
 
-        // Parse cookies from the response
+        // Extract cookies from the response
         const cookies = data.data.cookies;
         let cookieString = "";
         if (Array.isArray(cookies)) {
             cookies.forEach(cookie => {
-                // Extract the first part of the cookie string (name=value)
-                const cookieParts = cookie.split(';')[0].trim();
-                if (cookieParts) {
-                    cookieString += cookieParts + "; ";
+                if (cookie.name && cookie.value) {
+                    cookieString += `${cookie.name}=${cookie.value}; `;
                 }
             });
         }
