@@ -68,6 +68,12 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
             cookies {
                 name
                 value
+                domain
+                path
+                secure
+                httpOnly
+                sameSite
+                expires
             }
         }
     `;
