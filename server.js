@@ -62,7 +62,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
 
     const query = `
         mutation Goto($url: String!) {
-            goto(url: $url, waitUntil: "networkidle2") {
+            goto(url: $url, waitUntil: networkIdle) {
                 status
             }
             cookies {
