@@ -1,5 +1,4 @@
 const express = require('express');
-const fetch = require('node-fetch'); // Ensure node-fetch is installed
 const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "8357190104:AAGRU7LylcJDfGyYGAQHhni7e8PyAC8PKkU";
