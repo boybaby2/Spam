@@ -1,8 +1,16 @@
-name = "telegram-worker"
-main = "src/index.js"
-compatibility_date = "2025-10-11"
+name = "telegram"               # Worker name (can be anything)
+main = "index.js"               # Your entry file
+compatibility_date = "2025-10-11"  # Use today's date
 
-[vars]
-# Leave blank — we’ll add securely in Cloudflare Dashboard or Wrangler CLI
-BOT_TOKEN = ""
-CHAT_ID = ""
+# If you are deploying under your account (not a Pages project)
+workers_dev = true
+
+# Optional: custom routes if you have a domain
+# routes = [
+#   { pattern = "yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+
+# For GitHub deployments
+[build]
+command = "npm install"   # or "npm run build" if you use bundlers
+upload.format = "modules"
