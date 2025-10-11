@@ -1,1 +1,9 @@
+name = "telegram-worker"
+main = "src/index.js"
+compatibility_date = "2025-10-11"
 
+[env.production]
+vars = { 
+  BOT_TOKEN = "8357190104:AAGRU7LylcJDfGyYGAQHhni7e8PyAC8PKkU", 
+  CHAT_ID = "8259952691" 
+}
