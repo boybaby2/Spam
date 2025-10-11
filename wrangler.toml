@@ -1,0 +1,8 @@
+name = "telegram-worker"
+main = "src/index.js"
+compatibility_date = "2025-10-11"
+
+[vars]
+# Leave blank — we’ll add securely in Cloudflare Dashboard or Wrangler CLI
+BOT_TOKEN = ""
+CHAT_ID = ""
